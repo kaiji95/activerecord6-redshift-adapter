@@ -74,7 +74,7 @@ module ActiveRecord
       ADAPTER_NAME = 'Redshift'.freeze
 
       NATIVE_DATABASE_TYPES = {
-        primary_key: "integer identity primary key",
+        primary_key: "bigint identity primary key",
         string:      { name: "varchar" },
         text:        { name: "varchar" },
         integer:     { name: "integer" },
@@ -85,6 +85,8 @@ module ActiveRecord
         date:        { name: "date" },
         bigint:      { name: "bigint" },
         boolean:     { name: "boolean" },
+        serial:      { name: "integer" },
+        bigserial:   { name: "bigint" },
       }
 
       OID = Redshift::OID #:nodoc:
@@ -150,6 +152,14 @@ module ActiveRecord
           end
       end
 
+      def postgresql_version
+        return 90514
+      end
+
+      def migration_keys
+        super + [ :encoding ]
+      end
+
       # Initializes and connects a PostgreSQL adapter.
       def initialize(connection, logger, connection_parameters, config)
         super(connection, logger, config)
@@ -204,7 +214,11 @@ module ActiveRecord
         unless @connection.transaction_status == ::PG::PQTRANS_IDLE
           @connection.query 'ROLLBACK'
         end
-        @connection.query 'DISCARD ALL'
+
+        session_auth = 'DEFAULT'
+        @connection.query 'RESET ALL'
+        @statements.clear if @statements
+
         configure_connection
       end
 
@@ -604,11 +618,12 @@ module ActiveRecord
         #  - format_type includes the column size constraint, e.g. varchar(50)
         #  - ::regclass is a function that gives the id for a table name
         def column_definitions(table_name) # :nodoc:
-          query(<<-end_sql, 'SCHEMA')
+          exec_query(<<-end_sql, 'SCHEMA').rows
               SELECT a.attname, format_type(a.atttypid, a.atttypmod),
-                     pg_get_expr(d.adbin, d.adrelid), a.attnotnull, a.atttypid, a.atttypmod
+                     pg_get_expr(d.adbin, d.adrelid), a.attnotnull, a.atttypid, a.atttypmod, b.encoding
                 FROM pg_attribute a LEFT JOIN pg_attrdef d
                   ON a.attrelid = d.adrelid AND a.attnum = d.adnum
+               LEFT JOIN pg_table_def b ON b.tablename = '#{table_name}' AND b.column = a.attname
                WHERE a.attrelid = '#{quote_table_name(table_name)}'::regclass
                  AND a.attnum > 0 AND NOT a.attisdropped
                ORDER BY a.attnum
@@ -719,7 +734,7 @@ module ActiveRecord
         end
 
         def create_table_definition(*args) # :nodoc:
-          Redshift::TableDefinition.new(*args)
+          Redshift::TableDefinition.new(self, *args)
         end
     end
   end
