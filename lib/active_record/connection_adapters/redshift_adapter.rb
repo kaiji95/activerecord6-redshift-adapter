@@ -585,13 +585,13 @@ module ActiveRecord
 
           # If using Active Record's time zone support configure the connection to return
           # TIMESTAMP WITH ZONE types in UTC.
-          unless variables["timezone"]
-            if ActiveRecord::Base.default_timezone == :utc
-              variables["timezone"] = "UTC"
-            elsif @local_tz
-              variables["timezone"] = @local_tz
-            end
-          end
+          # unless variables["timezone"]
+          #   if ActiveRecord::Base.default_timezone == :utc
+          #     variables["timezone"] = "UTC"
+          #   elsif @local_tz
+          #     variables["timezone"] = @local_tz
+          #   end
+          # end
 
         end
 
