@@ -703,7 +703,7 @@ module ActiveRecord
 
           if defined?(PG::TextDecoder::TimestampUtc)
             # Use native PG encoders available since pg-1.1
-            coders_by_name["timestamp"] = PG::TextDecoder::TimestampUtc
+            # coders_by_name["timestamp"] = PG::TextDecoder::TimestampUtc
             coders_by_name["timestamptz"] = PG::TextDecoder::TimestampWithTimeZone
           end
 
