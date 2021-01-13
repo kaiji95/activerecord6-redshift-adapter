@@ -2,6 +2,10 @@ module ActiveRecord
   module ConnectionAdapters
     module Redshift
       class TypeMetadata < DelegateClass(SqlTypeMetadata)
+        undef to_yaml if method_defined?(:to_yaml)
+
+        include Deduplicable
+
         attr_reader :oid, :fmod, :array
 
         def initialize(type_metadata, oid: nil, fmod: nil)
