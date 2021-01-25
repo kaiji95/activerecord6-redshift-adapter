@@ -44,53 +44,33 @@ module ActiveRecord
           end
         end
 
+        # Returns an ActiveRecord::Result instance.
+        def select_all(arel, name = nil, binds = [], preparable: nil)
+          arel = arel_from_relation(arel)
+          sql, binds, preparable = to_sql_and_binds(arel, binds, preparable)
+
+          if prepared_statements && preparable
+            select_prepared(sql, name, binds)
+          else
+            select(sql, name, binds)
+          end
+        rescue ::RangeError
+          ActiveRecord::Result.new([], [])
+        end
+
+        # Returns a single value from a record
         def select_value(arel, name = nil, binds = [])
-          # In Rails 5.2, arel_from_relation replaced binds_from_relation,
-          # so we see which method exists to get the variables
-          #
-          # In Rails 6.0 to_sql_and_binds began only returning sql, with
-          # to_sql_and_binds serving as a replacement
-          if respond_to?(:arel_from_relation, true)
-            arel = arel_from_relation(arel)
-            sql, binds = to_sql_and_binds(arel, binds)
-          else
-            arel, binds = binds_from_relation arel, binds
-            sql = to_sql(arel, binds)
-          end
-          execute_and_clear(sql, name, binds) do |result|
-            result.getvalue(0, 0) if result.ntuples > 0 && result.nfields > 0
-          end
+          single_value_from_rows(select_rows(arel, name, binds))
         end
 
-        def select_values(arel, name = nil)
-          # In Rails 5.2, arel_from_relation replaced binds_from_relation,
-          # so we see which method exists to get the variables
-          #
-          # In Rails 6.0 to_sql_and_binds began only returning sql, with
-          # to_sql_and_binds serving as a replacement
-          if respond_to?(:arel_from_relation, true)
-            arel = arel_from_relation(arel)
-            sql, binds = to_sql_and_binds(arel, [])
-          else
-            arel, binds = binds_from_relation arel, []
-            sql = to_sql(arel, binds)
-          end
-
-          execute_and_clear(sql, name, binds) do |result|
-            if result.nfields > 0
-              result.column_values(0)
-            else
-              []
-            end
-          end
+        # Returns an array of the values of the first column in a select:
+        #   select_values("SELECT id FROM companies LIMIT 3") => [1,2,3]
+        def select_values(arel, name = nil, binds = [])
+          select_rows(arel, name, binds).map(&:first)
         end
 
-        # Executes a SELECT query and returns an array of rows. Each row is an
-        # array of field values.
-        def select_rows(sql, name = nil, binds = [])
-          execute_and_clear(sql, name, binds) do |result|
-            result.values
-          end
+        def select_rows(arel, name = nil, binds = [])
+          select_all(arel, name, binds).rows
         end
 
         # The internal PostgreSQL identifier of the money data type.
@@ -219,6 +199,11 @@ module ActiveRecord
         # Aborts a transaction.
         def exec_rollback_db_transaction
           execute "ROLLBACK"
+        end
+
+        def single_value_from_rows(rows)
+          row = rows.first
+          row && row.first
         end
       end
     end
