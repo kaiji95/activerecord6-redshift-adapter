@@ -463,7 +463,7 @@ module ActiveRecord
             precision: cast_type.precision,
             scale: cast_type.scale,
           )
-          TypeMetadata.new(simple_type, oid: oid, fmod: fmod)
+          RedshiftTypeMetadata.new(simple_type, oid: oid, fmod: fmod)
         end
       end
     end
